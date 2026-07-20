@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>جولة واقع افتراضي - سرداب النوري</title>
+    <!-- مكتبة A-Frame الأساسية للواقع الافتراضي -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
+        
+        /* شاشة البداية (لأخذ تصريح حساسات الجوال في الآيفون) */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+        #start-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        /* زر المشي للموبايل */
+        #walk-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 20px 40px;
+            font-size: 24px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border: 2px solid white;
+            color: white;
+            border-radius: 50px;
+            z-index: 999;
+            display: none; /* سيظهر فقط بعد الضغط على زر البداية */
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        #walk-btn:active {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .instructions {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 999;
+            pointer-events: none;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة البداية لتفعيل الحساسات -->
+    <div id="start-screen">
+        <h2>جولة السرداب</h2>
+        <p>اضغط للبدء (سيتم تفعيل حساسات الحركة للموبايل)</p>
+        <button id="start-btn">ابدأ الجولة 🚀</button>
+    </div>
+
+    <!-- زر المشي -->
+    <button id="walk-btn">🚶‍♂️ مشي (تحديث جديد)</button>
+    <div class="instructions" id="desktop-inst">استخدم الأسهم للمشي والماوس للالتفات</div>
+
+    <script>
+        // سكربت حركة الموبايل
+        AFRAME.registerComponent('mobile-walker', {
+            init: function () {
+                this.isWalking = false;
+                this.speed = 0.1; // سرعة المشي
+                this.camera = document.querySelector('[camera]');
+                
+                const btn = document.getElementById('walk-btn');
+                
+                // بدء المشي عند لمس الزر
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); this.isWalking = true; });
+                btn.addEventListener('mousedown', () => { this.isWalking = true; });
+                
+                // التوقف عن المشي عند رفع الإصبع
+                btn.addEventListener('touchend', (e) => { e.preventDefault(); this.isWalking = false; });
+                btn.addEventListener('mouseup', () => { this.isWalking = false; });
+                btn.addEventListener('mouseleave', () => { this.isWalking = false; });
+            },
+            tick: function () {
+                if (this.isWalking) {
+                    // حساب الاتجاه الذي تنظر إليه الكاميرا
+                    let direction = new THREE.Vector3();
+                    this.camera.object3D.getWorldDirection(direction);
+                    direction.y = 0; // منع الطيران للأعلى أو الأسفل
+                    direction.normalize();
+
+                    // تحريك اللاعب بالاتجاه المطلوب
+                    this.el.object3D.position.addScaledVector(direction, -this.speed);
+                }
+            }
+        });
+
+        // تشغيل الشاشة وبدء حساسات الجوال
+        document.getElementById('start-btn').addEventListener('click', function() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('walk-btn').style.display = 'block';
+            document.getElementById('desktop-inst').style.display = 'block';
+
+            // طلب تصريح حساسات الجوال (خاص بأجهزة آيفون iOS 13+)
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            console.log("DeviceMotion permission granted.");
+                        }
+                    })
+                    .catch(console.error);
+            }
+        });
+    </script>
+
+    <!-- دعم تقنية Draco لضغط المجسمات -->
+    <!-- ملاحظة: وضعنا dracoDecoderPath لدعم المجسمات المضغوطة -->
+    <a-scene renderer="colorManagement: true;" gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/v1/decoders/;">
+        <a-assets>
+            <a-asset-item id="basement-model" src="nury.glb?v=6"></a-asset-item>
+        </a-assets>
+
+        <!-- إضافة مجسم السرداب -->
+        <a-gltf-model src="#basement-model" position="0 0 0" scale="1 1 1"></a-gltf-model>
+
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="-1 2 1"></a-light>
+
+        <!-- اللاعب (الكاميرا والتحكم) -->
+        <a-entity id="rig" movement-controls="speed: 0.5" position="-1.3 -28.0 2.4" mobile-walker>
+            <a-entity camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
+        </a-entity>
+    </a-scene>
+</body>
+</html>
